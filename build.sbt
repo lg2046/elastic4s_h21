@@ -11,3 +11,5 @@ libraryDependencies ++= Seq(
   "org.scalactic" % "scalactic_2.11" % "2.2.5",
   "org.slf4j" % "slf4j-api" % "1.7.12"
 )
+
+isSnapshot := true

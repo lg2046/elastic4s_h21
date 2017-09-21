@@ -34,6 +34,36 @@ class ElasticClient(val client: org.elasticsearch.client.Client,
   override def iterateSearch(query: SearchDefinition)(implicit timeout: Duration): Iterator[RichSearchResponse] = {
     IterableSearch(this).iterateSearch(query)
   }
+
+  def searchByBatch(queryDef: SearchDefinition,
+                    batchSize: Int,
+                    scroll: String = "1m")
+                   (callback: (RichSearchResponse) => Unit): Unit = {
+    import com.sksamuel.elastic4s.ElasticDsl._
+    //第一次查询
+    var lastSearch: RichSearchResponse = execute(queryDef.scroll(scroll).limit(batchSize)).await
+
+    if (lastSearch.hits.length > 0) {
+      callback(lastSearch)
+    }
+
+    //后续的scroll查询
+    while (lastSearch.hits.length > 0) {
+      val resp = execute {
+        searchScroll(lastSearch.scrollId) keepAlive scroll
+      }.await
+
+      if (resp.hits.length > 0) {
+        callback(resp)
+      }
+
+      lastSearch = resp
+    }
+
+    execute {
+      clearScroll(lastSearch.scrollId)
+    }
+  }
 }
 
 object ElasticClient {
